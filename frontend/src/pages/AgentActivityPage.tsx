@@ -1,175 +1,667 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Cpu, Play, Power, RefreshCw, Activity, CheckCircle2, ShieldAlert } from 'lucide-react';
-import { fetchAgents, fetchDashboardOverview, simulateAgentFailure, restartAgent, triggerSwarmRefresh } from '../lib/api';
-import { formatTime, formatRelativeTime } from '../lib/format';
-import { Card } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
-import { AgentState } from '../types';
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  Cpu,
+  Play,
+  RotateCcw,
+  ShieldCheck,
+  Zap,
+} from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-export const AgentActivityPage: React.FC = () => {
+import {
+  fetchAgents,
+  fetchAgentRuns,
+  triggerSwarmRefresh,
+  simulateAgentFailure,
+  restartAgent,
+} from '../lib/api';
+
+import type { AgentRun, AgentState } from '../types';
+
+const statusClasses: Record<string, string> = {
+  online:
+    'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+  offline:
+    'bg-red-500/10 text-red-400 border border-red-500/20',
+  recovering:
+    'bg-amber-500/10 text-amber-400 border border-amber-500/20',
+  running:
+    'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+  retrying:
+    'bg-amber-500/10 text-amber-400 border border-amber-500/20',
+  completed:
+    'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+  failed:
+    'bg-red-500/10 text-red-400 border border-red-500/20',
+};
+
+function getStatusClass(status?: string) {
+  return (
+    statusClasses[status ?? ''] ??
+    'bg-white/5 text-slate-300 border border-white/10'
+  );
+}
+
+function formatStatus(status?: string) {
+  if (!status) return 'Unknown';
+
+  return status
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return '—';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function getRunKey(run: AgentRun, index: number) {
+  const candidate =
+    (run as AgentRun & { task_id?: string }).task_id ??
+    (run as AgentRun & { correlation_id?: string }).correlation_id;
+
+  return candidate ?? `run-${index}`;
+}
+
+function getRunAgentName(run: AgentRun) {
+  return (
+    (run as AgentRun & { agent_name?: string }).agent_name ??
+    'Swarm Agent'
+  );
+}
+
+function getRunSummary(run: AgentRun) {
+  return (
+    (run as AgentRun & { summary?: string }).summary ??
+    'Agent workflow activity'
+  );
+}
+
+function getRunTimestamp(run: AgentRun) {
+  return (
+    (run as AgentRun & { created_at?: string }).created_at ??
+    (run as AgentRun & { started_at?: string }).started_at ??
+    null
+  );
+}
+
+export default function AgentActivityPage() {
   const queryClient = useQueryClient();
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-  const { data: agents } = useQuery({
+  const {
+    data: agents = [],
+    isLoading: agentsLoading,
+  } = useQuery<AgentState[]>({
     queryKey: ['agents'],
     queryFn: fetchAgents,
+    refetchInterval: 3000,
+  });
+
+  const {
+    data: runs = [],
+    isLoading: runsLoading,
+  } = useQuery<AgentRun[]>({
+    queryKey: ['agent-runs'],
+    queryFn: fetchAgentRuns,
+    refetchInterval: 3000,
+  });
+
+  const triggerMutation = useMutation({
+    mutationFn: triggerSwarmRefresh,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['agents'],
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: ['agent-runs'],
+      });
+    },
   });
 
   const failureMutation = useMutation({
-    mutationFn: (agentId: string) => simulateAgentFailure(agentId),
-    onSuccess: (_, agentId) => {
-      setActionMessage(`Simulated process failure for ${agentId}. Status set to offline.`);
-      queryClient.invalidateQueries({ queryKey: ['agents'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    mutationFn: simulateAgentFailure,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['agents'],
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: ['agent-runs'],
+      });
     },
   });
 
   const restartMutation = useMutation({
-    mutationFn: (agentId: string) => restartAgent(agentId),
-    onSuccess: (_, agentId) => {
-      setActionMessage(`Restarted ${agentId}. Worker resumed normal heartbeat.`);
-      queryClient.invalidateQueries({ queryKey: ['agents'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    mutationFn: restartAgent,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['agents'],
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: ['agent-runs'],
+      });
     },
   });
 
-  const sampleLogs = [
-    {
-      id: 'log-1',
-      time: '15:29:58',
-      agent: 'Data Validation Agent',
-      action: 'Checked TCS dividend observation',
-      status: 'Valid (0 conflicts)',
-    },
-    {
-      id: 'log-2',
-      time: '15:29:55',
-      agent: 'Data Validation Agent',
-      action: 'Compared INFY observations (BSE ₹18.00 vs NSE ₹20.00)',
-      status: 'Conflict Flagged',
-    },
-    {
-      id: 'log-3',
-      time: '15:29:50',
-      agent: 'Dividend Calculation Agent',
-      action: 'Computed TCS 25 shares × ₹10.00 DPS',
-      status: 'Gross Income ₹250.00',
-    },
-    {
-      id: 'log-4',
-      time: '15:29:45',
-      agent: 'Date Tracking Agent',
-      action: 'Normalized TCS dates (Ex: 2026-10-10, Pmt: 2026-10-25)',
-      status: 'Date Sequence Verified',
-    },
-    {
-      id: 'log-5',
-      time: '15:29:40',
-      agent: 'Data Collection Agent',
-      action: 'Ingested raw disclosure fixture for TCS',
-      status: 'Observation Collected',
-    },
-  ];
+  const onlineAgents =
+  agents.filter(
+    (agent) => agent.status === 'online',
+  ).length;
+
+  const activeRuns =
+    runs.filter(
+      (run) =>
+        run.status === 'running' ||
+        run.status === 'retrying',
+    ).length;
+
+  const completedRuns =
+    runs.filter(
+      (run) => run.status === 'completed',
+    ).length;
+
+  const recoveryRuns =
+    runs.filter(
+      (run) =>
+        run.status === 'retrying' ||
+        run.status === 'failed',
+    ).length;
+
+  const isBusy =
+    triggerMutation.isPending ||
+    failureMutation.isPending ||
+    restartMutation.isPending;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text">Swarm Agent Activity & Monitoring</h1>
-          <p className="text-sm text-text-muted mt-1">
-            Visual inspection panel for cooperating agent processes, heartbeats, and failure simulation.
-          </p>
+    <div className="min-h-screen bg-[#050816] text-white">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+
+        {/* Header */}
+        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-sm text-cyan-400">
+              <Activity className="h-4 w-4" />
+              Swarm Intelligence
+            </div>
+
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Agent Activity
+            </h1>
+
+            <p className="mt-2 max-w-2xl text-sm text-slate-400">
+              Monitor distributed dividend-processing agents,
+              trigger the workflow, and demonstrate failure recovery.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => triggerMutation.mutate()}
+            disabled={isBusy}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-3 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Play className="h-4 w-4" />
+
+            {triggerMutation.isPending
+              ? 'Running Swarm...'
+              : 'Trigger Swarm Workflow'}
+          </button>
         </div>
 
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 inline-flex items-center gap-1.5">
-          <Cpu className="w-3.5 h-3.5 text-purple-600" />
-          Prototype Agent Cluster
+        {/* Demo notice */}
+        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+
+          <div>
+            <p className="text-sm font-semibold text-amber-300">
+              Hackathon demo mode
+            </p>
+
+            <p className="mt-1 text-xs leading-5 text-slate-400">
+              Agent activity and recovery controls use deterministic
+              demo data. No live market decisions are being made.
+            </p>
+          </div>
+        </div>
+
+        {/* Metrics */}
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+          <MetricCard
+            icon={<Cpu className="h-5 w-5" />}
+            label="Agents Online"
+            value={agentsLoading ? '—' : `${onlineAgents}/${agents.length}`}
+            description="Distributed workers available"
+          />
+
+          <MetricCard
+            icon={<Zap className="h-5 w-5" />}
+            label="Active Runs"
+            value={runsLoading ? '—' : String(activeRuns)}
+            description="Running or retrying"
+          />
+
+          <MetricCard
+            icon={<CheckCircle2 className="h-5 w-5" />}
+            label="Completed"
+            value={runsLoading ? '—' : String(completedRuns)}
+            description="Successful workflow runs"
+          />
+
+          <MetricCard
+            icon={<RotateCcw className="h-5 w-5" />}
+            label="Recovery Queue"
+            value={runsLoading ? '—' : String(recoveryRuns)}
+            description="Retry or failure activity"
+          />
+
+        </div>
+
+        {/* Agent cards */}
+        <section className="mb-8">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">
+                Swarm Workers
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Each worker owns a specialized part of the dividend
+                workflow.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+              Live polling
+            </div>
+          </div>
+
+          {agents.length === 0 && !agentsLoading ? (
+            <EmptyState
+              title="No agents available"
+              description="Start the backend and refresh this page."
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {agents.map((agent) => (
+                <AgentCard
+                  key={agent.agent_id}
+                  agent={agent}
+                  onFailure={() =>
+                    failureMutation.mutate(agent.agent_id)
+                  }
+                  onRestart={() =>
+                    restartMutation.mutate(agent.agent_id)
+                  }
+                  disabled={isBusy}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Workflow visualization */}
+        <section className="mb-8">
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold">
+              Distributed Workflow
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Data moves through independent workers instead of one
+              central processing unit.
+            </p>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+              <WorkflowStep
+                number="01"
+                title="Collect"
+                description="Gather source observations"
+              />
+
+              <WorkflowConnector />
+
+              <WorkflowStep
+                number="02"
+                title="Validate"
+                description="Compare distributed observations"
+              />
+
+              <WorkflowConnector />
+
+              <WorkflowStep
+                number="03"
+                title="Calculate"
+                description="Compute deterministic income"
+              />
+
+              <WorkflowConnector />
+
+              <WorkflowStep
+                number="04"
+                title="Explain"
+                description="Create investor-friendly context"
+              />
+
+              <WorkflowConnector />
+
+              <WorkflowStep
+                number="05"
+                title="Monitor"
+                description="Detect failure and recover"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Runs */}
+        <section>
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">
+                Workflow Runs
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Recent distributed agent activity.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-400">
+              {runs.length} recorded runs
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+            {runsLoading ? (
+              <div className="p-8 text-center text-sm text-slate-500">
+                Loading agent activity...
+              </div>
+            ) : runs.length === 0 ? (
+              <EmptyState
+                title="No workflow runs yet"
+                description="Trigger the swarm workflow to create an activity record."
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px]">
+                  <thead>
+                    <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-slate-500">
+                      <th className="px-5 py-4 font-medium">
+                        Agent
+                      </th>
+
+                      <th className="px-5 py-4 font-medium">
+                        Status
+                      </th>
+
+                      <th className="px-5 py-4 font-medium">
+                        Summary
+                      </th>
+
+                      <th className="px-5 py-4 font-medium">
+                        Time
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {runs.map((run, index) => (
+                      <tr
+                        key={getRunKey(run, index)}
+                        className="border-b border-white/5 last:border-0"
+                      >
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-400/10 text-cyan-400">
+                              <Cpu className="h-4 w-4" />
+                            </div>
+
+                            <span className="text-sm font-medium text-slate-200">
+                              {getRunAgentName(run)}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
+                              run.status,
+                            )}`}
+                          >
+                            {formatStatus(run.status)}
+                          </span>
+                        </td>
+
+                        <td className="max-w-md px-5 py-4 text-sm text-slate-400">
+                          {getRunSummary(run)}
+                        </td>
+
+                        <td className="px-5 py-4 text-sm text-slate-500">
+                          {formatDate(getRunTimestamp(run))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
+
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   COMPONENTS
+   ============================================================ */
+
+function MetricCard({
+  icon,
+  label,
+  value,
+  description,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-400">
+          {icon}
+        </div>
+
+        <ShieldCheck className="h-4 w-4 text-slate-600" />
+      </div>
+
+      <p className="text-sm text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-1 text-2xl font-bold text-white">
+        {value}
+      </p>
+
+      <p className="mt-1 text-xs text-slate-600">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function AgentCard({
+  agent,
+  onFailure,
+  onRestart,
+  disabled,
+}: {
+  agent: AgentState;
+  onFailure: () => void;
+  onRestart: () => void;
+  disabled: boolean;
+}) {
+  const isOffline = agent.status === 'offline';
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition hover:border-cyan-400/20 hover:bg-white/[0.045]">
+
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-400">
+            <Cpu className="h-5 w-5" />
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-slate-100">
+              {agent.name}
+            </h3>
+
+            <p className="mt-1 text-xs text-slate-500">
+              {agent.agent_id}
+            </p>
+          </div>
+        </div>
+
+        <span
+          className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${getStatusClass(
+            agent.status,
+          )}`}
+        >
+          {formatStatus(agent.status)}
         </span>
       </div>
 
-      {actionMessage && (
-        <div className="p-3.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-medium flex items-center justify-between">
-          <span>{actionMessage}</span>
-          <button onClick={() => setActionMessage(null)} className="text-purple-700 hover:text-purple-900 font-bold">
-            Dismiss
-          </button>
-        </div>
-      )}
+      <p className="mb-4 min-h-[40px] text-xs leading-5 text-slate-500">
+        {agent.role}
+      </p>
 
-      {/* Swarm Visual Grid Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {agents?.map((agent) => (
-          <Card
-            key={agent.agent_id}
-            className={agent.status === 'offline' ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200'}
-          >
-            <div className="space-y-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h4 className="text-sm font-bold text-text">{agent.name}</h4>
-                  <p className="text-[11px] text-text-muted">{agent.role}</p>
-                </div>
-                <Badge variant={agent.status}>{agent.status.toUpperCase()}</Badge>
-              </div>
+      <div className="mb-4 rounded-xl border border-white/5 bg-black/20 p-3">
+        <p className="text-[10px] uppercase tracking-wider text-slate-600">
+          Current task
+        </p>
 
-              <div className="p-2.5 rounded-lg bg-slate-50 border border-border text-xs space-y-1">
-                <div className="flex justify-between text-text-muted">
-                  <span>Current Task:</span>
-                  <span className="font-semibold text-slate-900">{agent.current_task || 'Idle'}</span>
-                </div>
-                <div className="flex justify-between text-text-muted">
-                  <span>Last Heartbeat:</span>
-                  <span className="font-semibold text-slate-700">{formatRelativeTime(agent.last_heartbeat)}</span>
-                </div>
-              </div>
-
-              <div className="pt-2 flex items-center gap-2">
-                {agent.status === 'online' ? (
-                  <button
-                    onClick={() => failureMutation.mutate(agent.agent_id)}
-                    className="w-full py-1.5 px-3 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <Power className="w-3.5 h-3.5" />
-                    Simulate Process Failure
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => restartMutation.mutate(agent.agent_id)}
-                    className="w-full py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-                  >
-                    <Play className="w-3.5 h-3.5" />
-                    Restart Agent Process
-                  </button>
-                )}
-              </div>
-            </div>
-          </Card>
-        ))}
+        <p className="mt-1 text-xs text-slate-300">
+          {agent.current_task || 'Idle'}
+        </p>
       </div>
 
-      {/* Activity Log Stream */}
-      <Card title="Swarm Workflow Activity Stream" subtitle="Recent messages exchanged between agents with correlation IDs">
-        <div className="space-y-3">
-          {sampleLogs.map((log) => (
-            <div key={log.id} className="p-3 rounded-lg bg-slate-50 border border-border flex items-center justify-between text-xs">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-purple-500" />
-                <div>
-                  <span className="font-bold text-slate-900 mr-2">{log.agent}:</span>
-                  <span className="text-slate-700">{log.action}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-slate-500">{log.time}</span>
-                <span className="px-2 py-0.5 rounded-md bg-white border border-border font-semibold text-slate-800">
-                  {log.status}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+      <div className="mb-4 flex items-center justify-between text-[11px] text-slate-600">
+        <span>Last heartbeat</span>
+
+        <span>
+          {formatDate(agent.last_heartbeat)}
+        </span>
+      </div>
+
+      <div className="flex gap-2">
+        {!isOffline ? (
+          <button
+            type="button"
+            onClick={onFailure}
+            disabled={disabled}
+            className="flex-1 rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-xs font-medium text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Simulate Failure
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onRestart}
+            disabled={disabled}
+            className="flex-1 rounded-lg border border-emerald-400/20 bg-emerald-400/5 px-3 py-2 text-xs font-medium text-emerald-300 transition hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <span className="inline-flex items-center gap-2">
+              <RotateCcw className="h-3.5 w-3.5" />
+              Recover Agent
+            </span>
+          </button>
+        )}
+      </div>
     </div>
   );
-};
+}
+
+function WorkflowStep({
+  number,
+  title,
+  description,
+}: {
+  number: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-[10px] font-bold tracking-widest text-cyan-400">
+          {number}
+        </span>
+
+        <div className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.7)]" />
+      </div>
+
+      <h3 className="text-sm font-semibold text-slate-200">
+        {title}
+      </h3>
+
+      <p className="mt-1 text-xs leading-5 text-slate-500">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function WorkflowConnector() {
+  return (
+    <div className="hidden items-center justify-center md:flex">
+      <div className="h-px w-full bg-gradient-to-r from-cyan-400/30 to-cyan-400/5" />
+    </div>
+  );
+}
+
+function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center">
+      <Clock3 className="mx-auto h-8 w-8 text-slate-600" />
+
+      <h3 className="mt-3 text-sm font-semibold text-slate-300">
+        {title}
+      </h3>
+
+      <p className="mt-1 text-xs text-slate-600">
+        {description}
+      </p>
+    </div>
+  );
+}

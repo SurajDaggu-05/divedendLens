@@ -3,17 +3,15 @@ import {
   DashboardOverview,
   Portfolio,
   Holding,
-  PortfolioSummary,
   DividendEvent,
   CalendarEventEntry,
   AgentState,
   AgentRun,
   DataAlert,
-  ExplanationResponse,
-  PaymentReport
 } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -22,7 +20,11 @@ export const apiClient = axios.create({
   },
 });
 
-// Fallback Mock Data for resilient presentation
+// ============================================================
+// MOCK DATA
+// Used only when the backend is unavailable.
+// ============================================================
+
 export const MOCK_DASHBOARD: DashboardOverview = {
   is_demo_data: true,
   metrics: {
@@ -203,7 +205,8 @@ export const MOCK_ALERTS: DataAlert[] = [
     event_id: 'evt-infy-002',
     company_ticker: 'INFY',
     alert_type: 'conflict',
-    description: 'BSE Official Disclosure reports ₹18.00 DPS while NSE Market Feed reports ₹20.00 DPS.',
+    description:
+      'BSE Official Disclosure reports ₹18.00 DPS while NSE Market Feed reports ₹20.00 DPS.',
     is_resolved: false,
     observations: [
       {
@@ -223,41 +226,72 @@ export const MOCK_ALERTS: DataAlert[] = [
   },
 ];
 
-// API Functions with automatic fallback
+// ============================================================
+// DASHBOARD
+// ============================================================
+
 export async function fetchDashboardOverview(): Promise<DashboardOverview> {
   try {
     const res = await apiClient.get('/dashboard/overview');
     return res.data.data;
   } catch (err) {
-    console.warn('Backend API unavailable, using fallback mock dashboard data:', err);
+    console.warn(
+      'Backend API unavailable, using fallback mock dashboard data:',
+      err,
+    );
+
     return MOCK_DASHBOARD;
   }
 }
+
+// ============================================================
+// PORTFOLIOS
+// ============================================================
 
 export async function fetchPortfolios(): Promise<Portfolio[]> {
   try {
     const res = await apiClient.get('/portfolios');
     return res.data.data;
   } catch (err) {
+    console.warn('Backend portfolios unavailable, using mock data.');
+
     return MOCK_PORTFOLIOS;
   }
 }
 
-export async function fetchHoldings(portfolioId: string): Promise<Holding[]> {
+export async function fetchHoldings(
+  portfolioId: string,
+): Promise<Holding[]> {
   try {
-    const res = await apiClient.get(`/portfolios/${portfolioId}/holdings`);
+    const res = await apiClient.get(
+      `/portfolios/${portfolioId}/holdings`,
+    );
+
     return res.data.data;
   } catch (err) {
+    console.warn('Backend holdings unavailable, using mock data.');
+
     return MOCK_HOLDINGS;
   }
 }
 
-export async function addHolding(portfolioId: string, payload: { ticker: string; quantity: number; average_price?: number; purchase_date?: string }): Promise<Holding> {
+export async function addHolding(
+  portfolioId: string,
+  payload: {
+    ticker: string;
+    quantity: number;
+    average_price?: number;
+    purchase_date?: string;
+  },
+): Promise<Holding> {
   try {
-    const res = await apiClient.post(`/portfolios/${portfolioId}/holdings`, payload);
+    const res = await apiClient.post(
+      `/portfolios/${portfolioId}/holdings`,
+      payload,
+    );
+
     return res.data.data;
   } catch (err) {
-    // Local state fallback insertion
     const newHolding: Holding = {
       id: `hld-${Date.now()}`,
       portfolio_id: portfolioId,
@@ -268,32 +302,52 @@ export async function addHolding(portfolioId: string, payload: { ticker: string;
         exchange: 'NSE',
       },
       quantity: payload.quantity,
-      average_price: payload.average_price ? payload.average_price.toFixed(2) : undefined,
+      average_price:
+        payload.average_price !== undefined
+          ? payload.average_price.toFixed(2)
+          : undefined,
       purchase_date: payload.purchase_date,
     };
+
     MOCK_HOLDINGS.push(newHolding);
+
     return newHolding;
   }
 }
 
-export async function deleteHolding(holdingId: string): Promise<void> {
+export async function deleteHolding(
+  holdingId: string,
+): Promise<void> {
   try {
     await apiClient.delete(`/holdings/${holdingId}`);
   } catch (err) {
-    const idx = MOCK_HOLDINGS.findIndex(h => h.id === holdingId);
-    if (idx !== -1) MOCK_HOLDINGS.splice(idx, 1);
+    const idx = MOCK_HOLDINGS.findIndex(
+      (holding) => holding.id === holdingId,
+    );
+
+    if (idx !== -1) {
+      MOCK_HOLDINGS.splice(idx, 1);
+    }
   }
 }
+
+// ============================================================
+// DIVIDENDS
+// ============================================================
 
 export async function fetchDividends(): Promise<DividendEvent[]> {
   try {
     const res = await apiClient.get('/dividends');
+
     return res.data.data;
   } catch (err) {
     return [
       {
         id: 'f6a7b890-1234-5678-f012-678901234567',
-        company: { ticker: 'TCS', name: 'Tata Consultancy Services Ltd' },
+        company: {
+          ticker: 'TCS',
+          name: 'Tata Consultancy Services Ltd',
+        },
         event_type: 'interim',
         dividend_per_share: '10.00',
         currency: 'INR',
@@ -307,7 +361,10 @@ export async function fetchDividends(): Promise<DividendEvent[]> {
       },
       {
         id: 'evt-infy-002',
-        company: { ticker: 'INFY', name: 'Infosys Limited' },
+        company: {
+          ticker: 'INFY',
+          name: 'Infosys Limited',
+        },
         event_type: 'interim',
         dividend_per_share: '18.00',
         currency: 'INR',
@@ -321,7 +378,10 @@ export async function fetchDividends(): Promise<DividendEvent[]> {
       },
       {
         id: 'evt-rel-003',
-        company: { ticker: 'RELIANCE', name: 'Reliance Industries Ltd' },
+        company: {
+          ticker: 'RELIANCE',
+          name: 'Reliance Industries Ltd',
+        },
         event_type: 'final',
         dividend_per_share: '15.00',
         currency: 'INR',
@@ -332,14 +392,21 @@ export async function fetchDividends(): Promise<DividendEvent[]> {
         business_status: 'announced',
         validation_status: 'valid',
         is_demo_data: true,
-      }
+      },
     ];
   }
 }
 
-export async function fetchCalendarEvents(): Promise<CalendarEventEntry[]> {
+// ============================================================
+// CALENDAR
+// ============================================================
+
+export async function fetchCalendarEvents(): Promise<
+  CalendarEventEntry[]
+> {
   try {
     const res = await apiClient.get('/calendar');
+
     return res.data.data;
   } catch (err) {
     return [
@@ -397,53 +464,87 @@ export async function fetchCalendarEvents(): Promise<CalendarEventEntry[]> {
   }
 }
 
+// ============================================================
+// AGENT SYSTEM
+// ============================================================
+
 export async function fetchAgents(): Promise<AgentState[]> {
   try {
     const res = await apiClient.get('/agents');
+
     return res.data.data;
   } catch (err) {
+    console.warn('Backend agents unavailable, using mock agents.');
+
     return MOCK_AGENTS;
   }
 }
 
-export async function fetchAlerts(): Promise<DataAlert[]> {
+/**
+ * Step 2:
+ * Fetch the history/current activity of swarm agent runs.
+ */
+export async function fetchAgentRuns(): Promise<AgentRun[]> {
   try {
-    const res = await apiClient.get('/alerts');
+    const res = await apiClient.get('/agents/runs');
+
     return res.data.data;
   } catch (err) {
-    return MOCK_ALERTS;
+    console.warn('Backend agent runs unavailable.');
+
+    return [];
   }
 }
 
-export async function resolveAlert(alertId: string, selectedSourceId: string, notes?: string): Promise<void> {
+/**
+ * Trigger the complete swarm workflow.
+ */
+export async function triggerSwarmRefresh(): Promise<void> {
   try {
-    await apiClient.post(`/alerts/${alertId}/resolve`, {
-      selected_source_id: selectedSourceId,
-      resolution_notes: notes || 'Resolved via human review.',
-    });
+    await apiClient.post('/agents/trigger');
   } catch (err) {
-    const alert = MOCK_ALERTS.find(a => a.id === alertId);
-    if (alert) alert.is_resolved = true;
+    console.warn('Swarm refresh triggered locally.');
   }
 }
 
-export async function simulateAgentFailure(agentId: string): Promise<void> {
+/**
+ * Simulate an agent failure for the hackathon recovery demo.
+ */
+export async function simulateAgentFailure(
+  agentId: string,
+): Promise<void> {
   try {
-    await apiClient.post(`/agents/${agentId}/simulate-failure`);
+    await apiClient.post(
+      `/agents/${agentId}/simulate-failure`,
+    );
   } catch (err) {
-    const agent = MOCK_AGENTS.find(a => a.agent_id === agentId);
+    const agent = MOCK_AGENTS.find(
+      (item) => item.agent_id === agentId,
+    );
+
     if (agent) {
       agent.status = 'offline';
-      agent.current_task = 'Process failure simulated (Demo Control)';
+      agent.current_task =
+        'Process failure simulated (Demo Control)';
     }
   }
 }
 
-export async function restartAgent(agentId: string): Promise<void> {
+/**
+ * Restart/recover an agent.
+ */
+export async function restartAgent(
+  agentId: string,
+): Promise<void> {
   try {
-    await apiClient.post(`/agents/${agentId}/restart`);
+    await apiClient.post(
+      `/agents/${agentId}/restart`,
+    );
   } catch (err) {
-    const agent = MOCK_AGENTS.find(a => a.agent_id === agentId);
+    const agent = MOCK_AGENTS.find(
+      (item) => item.agent_id === agentId,
+    );
+
     if (agent) {
       agent.status = 'online';
       agent.current_task = 'Idle';
@@ -451,18 +552,55 @@ export async function restartAgent(agentId: string): Promise<void> {
   }
 }
 
-export async function triggerSwarmRefresh(): Promise<void> {
+// ============================================================
+// ALERTS
+// ============================================================
+
+export async function fetchAlerts(): Promise<DataAlert[]> {
   try {
-    await apiClient.post('/agents/trigger');
+    const res = await apiClient.get('/alerts');
+
+    return res.data.data;
   } catch (err) {
-    console.log('Swarm refresh triggered locally');
+    console.warn('Backend alerts unavailable, using mock alerts.');
+
+    return MOCK_ALERTS;
   }
 }
+
+export async function resolveAlert(
+  alertId: string,
+  selectedSourceId: string,
+  notes?: string,
+): Promise<void> {
+  try {
+    await apiClient.post(
+      `/alerts/${alertId}/resolve`,
+      {
+        selected_source_id: selectedSourceId,
+        resolution_notes:
+          notes || 'Resolved via human review.',
+      },
+    );
+  } catch (err) {
+    const alert = MOCK_ALERTS.find(
+      (item) => item.id === alertId,
+    );
+
+    if (alert) {
+      alert.is_resolved = true;
+    }
+  }
+}
+
+// ============================================================
+// DEMO CONTROLS
+// ============================================================
 
 export async function resetDemoData(): Promise<void> {
   try {
     await apiClient.post('/demo/reset');
   } catch (err) {
-    console.log('Demo data reset locally');
+    console.warn('Demo data reset locally.');
   }
 }

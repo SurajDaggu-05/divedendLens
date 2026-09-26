@@ -7,7 +7,7 @@ import { PortfolioPage } from './pages/PortfolioPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { AlertsPage } from './pages/AlertsPage';
-import { AgentActivityPage } from './pages/AgentActivityPage';
+import AgentActivityPage from './pages/AgentActivityPage';
 import { GlossaryPage } from './pages/GlossaryPage';
 
 const queryClient = new QueryClient({
