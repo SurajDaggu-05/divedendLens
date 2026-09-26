@@ -1,58 +1,30 @@
-import type { ComponentProps } from 'react'
+import React from 'react';
 
-import { cn } from '@/lib/utils'
+interface CardProps {
+  children: React.ReactNode;
+  className?: string;
+  title?: React.ReactNode;
+  action?: React.ReactNode;
+  subtitle?: string;
+}
 
-function Card({ className, ...props }: ComponentProps<'div'>) {
+export const Card: React.FC<CardProps> = ({ children, className = '', title, action, subtitle }) => {
   return (
-    <div
-      data-slot="card"
-      className={cn(
-        'flex flex-col gap-4 rounded-xl border bg-card py-5 text-card-foreground',
-        className,
+    <div className={`bg-white rounded-xl border border-border shadow-xs overflow-hidden ${className}`}>
+      {(title || action) && (
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+          <div>
+            {typeof title === 'string' ? (
+              <h3 className="text-base font-semibold text-text">{title}</h3>
+            ) : (
+              title
+            )}
+            {subtitle && <p className="text-xs text-text-muted mt-0.5">{subtitle}</p>}
+          </div>
+          {action && <div>{action}</div>}
+        </div>
       )}
-      {...props}
-    />
-  )
-}
-
-function CardHeader({ className, ...props }: ComponentProps<'div'>) {
-  return (
-    <div
-      data-slot="card-header"
-      className={cn('px-5', className)}
-      {...props}
-    />
-  )
-}
-
-function CardTitle({ className, ...props }: ComponentProps<'h2'>) {
-  return (
-    <h2
-      data-slot="card-title"
-      className={cn('text-lg font-semibold leading-tight', className)}
-      {...props}
-    />
-  )
-}
-
-function CardDescription({ className, ...props }: ComponentProps<'p'>) {
-  return (
-    <p
-      data-slot="card-description"
-      className={cn('text-sm text-muted-foreground', className)}
-      {...props}
-    />
-  )
-}
-
-function CardContent({ className, ...props }: ComponentProps<'div'>) {
-  return (
-    <div
-      data-slot="card-content"
-      className={cn('px-5', className)}
-      {...props}
-    />
-  )
-}
-
-export { Card, CardHeader, CardTitle, CardDescription, CardContent }
+      <div className="p-6">{children}</div>
+    </div>
+  );
+};
