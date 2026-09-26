@@ -1,0 +1,79 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-agent: var(--agent);
+  --color-agent-soft: var(--agent-soft);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: #f6f8fb;
+  --foreground: #17212f;
+  --card: #ffffff;
+  --card-foreground: #17212f;
+  --popover: #ffffff;
+  --popover-foreground: #17212f;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f3f7;
+  --secondary-foreground: #17212f;
+  --muted: #f0f3f7;
+  --muted-foreground: #647184;
+  --accent: #eff6ff;
+  --accent-foreground: #1d4ed8;
+  --destructive: #b91c1c;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #2563eb;
+  --success: #15803d;
+  --warning: #b45309;
+  --info: #0369a1;
+  --agent: #6d5ce8;
+  --agent-soft: #f3f0ff;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    margin: 0;
+  }
+}
