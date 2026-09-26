@@ -1,9 +1,32 @@
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 
 from app.api import auth, portfolios, dashboard, dividends, calendar, agents, explanations
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Ensure database tables exist and seed default accounts on initial launch."""
+    try:
+        from app.db.session import engine, Base, SessionLocal
+        from app.db.models import User
+        from app.db.seed import seed_database
+
+        Base.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        try:
+            if db.query(User).count() == 0:
+                print("[Startup] Database is empty. Running initial seed...")
+                seed_database(db=db)
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[Startup] Note on DB startup check: {e}")
+    yield
+
 
 app = FastAPI(
     title="DividendLens API",
@@ -12,6 +35,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 # CORS middleware configuration
@@ -55,6 +79,12 @@ api_v1_router.include_router(explanations.router)
 
 # Include main API v1 router in FastAPI app
 app.include_router(api_v1_router)
+
+
+@app.get("/health", tags=["Health"], include_in_schema=False)
+def root_health():
+    """Direct root health check for deployment orchestrators."""
+    return health_check()
 
 
 @app.get("/", include_in_schema=False)

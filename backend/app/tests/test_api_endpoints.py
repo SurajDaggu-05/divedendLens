@@ -19,7 +19,17 @@ def test_health_endpoint():
 
 
 def test_auth_me_endpoint():
-    res = client.get("/api/v1/auth/me")
+    login_res = client.post(
+        "/api/v1/auth/login",
+        json={"email": "arjun@example.com", "password": "SecurePassword123!"},
+    )
+    assert login_res.status_code == 200
+    token = login_res.json()["data"]["access_token"]
+
+    res = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert res.status_code == 200
     assert res.json()["success"] is True
     assert res.json()["data"]["email"] == "arjun@example.com"

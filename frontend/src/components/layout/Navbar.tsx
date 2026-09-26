@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
-import { RefreshCw, RotateCcw, ShieldCheck, User } from 'lucide-react';
+import { RefreshCw, RotateCcw, ShieldCheck, LogOut } from 'lucide-react';
 import { triggerSwarmRefresh, resetDemoData } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+import { getInitials } from '../../lib/format';
 
-export const Navbar: React.FC = () => {
+interface NavbarProps {
+  onSignOut?: () => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ onSignOut }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const { user, logout } = useAuth();
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -25,6 +32,17 @@ export const Navbar: React.FC = () => {
       }, 800);
     }
   };
+
+  const handleSignOutAction = async () => {
+    if (onSignOut) {
+      onSignOut();
+    } else {
+      await logout();
+    }
+  };
+
+  const userName = user?.name || 'User';
+  const initials = getInitials(userName);
 
   return (
     <header className="h-16 bg-white border-b border-border sticky top-0 z-30 flex items-center justify-between px-6">
@@ -64,11 +82,21 @@ export const Navbar: React.FC = () => {
 
         <div className="h-4 w-px bg-border mx-1" />
 
-        <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-50 border border-border">
-          <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold">
-            AS
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-50 border border-border">
+            <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold">
+              {initials}
+            </div>
+            <span className="text-xs font-medium text-text">{userName}</span>
           </div>
-          <span className="text-xs font-medium text-text">Arjun Sharma</span>
+
+          <button
+            onClick={handleSignOutAction}
+            className="p-1.5 rounded-lg border border-border bg-slate-50 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-slate-500 text-xs font-medium transition-colors cursor-pointer"
+            title="Sign Out to Return to Sign In Screen"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </header>

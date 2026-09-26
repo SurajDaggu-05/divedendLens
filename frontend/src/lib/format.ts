@@ -70,3 +70,21 @@ export function formatRelativeTime(tsStr?: string | null): string {
     return 'Recently';
   }
 }
+
+/**
+ * Safely derives initials from a user's full name.
+ * Examples:
+ * "Arjun Sharma" -> "AS"
+ * "Rahul Kumar" -> "RK"
+ * "Priya" -> "P"
+ * "John Michael Smith" -> "JS"
+ * undefined/null -> "U"
+ */
+export function getInitials(name?: string | null): string {
+  if (!name || typeof name !== 'string') return 'U';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'U';
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+

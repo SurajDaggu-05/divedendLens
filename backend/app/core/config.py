@@ -20,14 +20,24 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours for hackathon convenience
     
     # CORS Origins
-    CORS_ORIGINS: Union[str, List[str]] = ["http://localhost:5173", "http://localhost:3000", "*"]
+    FRONTEND_URL: str = ""
+    CORS_ORIGINS: Union[str, List[str]] = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "*"]
     
     @field_validator("CORS_ORIGINS", mode="after")
     @classmethod
-    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+    def assemble_cors_origins(cls, v: Union[str, List[str]], info) -> List[str]:
+        origins = []
         if isinstance(v, str):
-            return [i.strip() for i in v.split(",") if i.strip()]
-        return v
+            origins = [i.strip() for i in v.split(",") if i.strip()]
+        elif isinstance(v, list):
+            origins = list(v)
+        
+        # Include FRONTEND_URL if specified
+        frontend_url = info.data.get("FRONTEND_URL")
+        if frontend_url and frontend_url not in origins:
+            origins.append(frontend_url)
+            
+        return origins
 
     model_config = SettingsConfigDict(
         env_file=".env",

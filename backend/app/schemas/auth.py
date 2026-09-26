@@ -5,12 +5,12 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict
 class UserRegisterRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     email: EmailStr
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=8, max_length=100)
 
 
 class UserLoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=1)
 
 
 class UserResponse(BaseModel):

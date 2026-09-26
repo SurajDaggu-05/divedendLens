@@ -56,7 +56,7 @@ def seed_database(db: Session = None):
         db.commit()
 
         # ============================================================
-        # 2. DEMO USER
+        # 2. DEMO USERS
         # ============================================================
 
         demo_user = User(
@@ -66,7 +66,35 @@ def seed_database(db: Session = None):
             password_hash=ph.hash("SecurePassword123!"),
         )
 
-        db.add(demo_user)
+        suraj_user = User(
+            id="usr-suraj-001",
+            name="Suraj",
+            email="surajdaggu40@gmail.com",
+            password_hash=ph.hash("suraj40"),
+        )
+
+        parvath_user = User(
+            id="usr-parvath-002",
+            name="Parvath",
+            email="parvath06@gmail.com",
+            password_hash=ph.hash("parvath06"),
+        )
+
+        sushanth_user = User(
+            id="usr-sushanth-003",
+            name="Sushanth",
+            email="sushanth05@gmail.com",
+            password_hash=ph.hash("sushanth05"),
+        )
+
+        kiran_user = User(
+            id="usr-kiran-004",
+            name="Kiran",
+            email="kiran23@gmail.com",
+            password_hash=ph.hash("kiran23"),
+        )
+
+        db.add_all([demo_user, suraj_user, parvath_user, sushanth_user, kiran_user])
         db.commit()
 
         # ============================================================
@@ -498,7 +526,7 @@ def seed_database(db: Session = None):
         db.commit()
 
         # ============================================================
-        # 6. PORTFOLIO
+        # 6. PORTFOLIOS
         # ============================================================
 
         portfolio = Portfolio(
@@ -508,7 +536,35 @@ def seed_database(db: Session = None):
             description="Long-term dividend growth stocks",
         )
 
-        db.add(portfolio)
+        suraj_portfolio = Portfolio(
+            id="pfl-suraj-001",
+            user_id=suraj_user.id,
+            name="Suraj Core Equities",
+            description="Dividend growth portfolio",
+        )
+
+        parvath_portfolio = Portfolio(
+            id="pfl-parvath-002",
+            user_id=parvath_user.id,
+            name="Parvath Core Equities",
+            description="Dividend growth portfolio",
+        )
+
+        sushanth_portfolio = Portfolio(
+            id="pfl-sushanth-003",
+            user_id=sushanth_user.id,
+            name="Sushanth Core Equities",
+            description="Dividend growth portfolio",
+        )
+
+        kiran_portfolio = Portfolio(
+            id="pfl-kiran-004",
+            user_id=kiran_user.id,
+            name="Kiran Core Equities",
+            description="Dividend growth portfolio",
+        )
+
+        db.add_all([portfolio, suraj_portfolio, parvath_portfolio, sushanth_portfolio, kiran_portfolio])
         db.commit()
 
         # ============================================================
