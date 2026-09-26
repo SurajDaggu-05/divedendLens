@@ -9,11 +9,19 @@ class Base(DeclarativeBase):
     pass
 
 
+# Configure engine options based on database type
+engine_args = {
+    "pool_pre_ping": True,
+    "echo": False,
+}
+
+if settings.DATABASE_URL.startswith("sqlite"):
+    engine_args["connect_args"] = {"check_same_thread": False}
+
 # Create database engine
 engine = create_engine(
     settings.DATABASE_URL,
-    pool_pre_ping=True,
-    echo=settings.DEBUG,
+    **engine_args
 )
 
 # Create sessionmaker factory

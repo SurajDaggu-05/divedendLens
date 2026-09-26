@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     SECRET_KEY: str = "dev-secret-key-change-in-production-12345"
     
-    # Database
-    DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/dividendlens"
+    # Database - Default to SQLite for easy local hackathon execution if Postgres is not running
+    DATABASE_URL: str = "sqlite:///./dividendlens.db"
     
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -17,10 +17,10 @@ class Settings(BaseSettings):
     # JWT Authentication
     JWT_SECRET_KEY: str = "jwt-secret-key-change-in-production-67890"
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours for hackathon convenience
     
     # CORS Origins
-    CORS_ORIGINS: Union[str, List[str]] = ["http://localhost:5173", "http://localhost:3000"]
+    CORS_ORIGINS: Union[str, List[str]] = ["http://localhost:5173", "http://localhost:3000", "*"]
     
     @field_validator("CORS_ORIGINS", mode="after")
     @classmethod
